@@ -1,0 +1,13 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Data (never commit raw corpora)
+data/raw/
+data/processed/
+
+# Local tools
+.env
+.DS_Store
+
