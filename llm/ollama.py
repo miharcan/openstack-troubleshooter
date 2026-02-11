@@ -25,4 +25,3 @@ class OllamaLLM:
         resp.raise_for_status()
         data = resp.json()
         return data.get("response", "").strip()
-

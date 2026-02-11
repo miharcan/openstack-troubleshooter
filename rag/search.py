@@ -18,7 +18,7 @@ def load():
     model = SentenceTransformer(MODEL_NAME)
     return index, meta, model
 
-# --- LOAD ONCE AT IMPORT ---
+
 _index = faiss.read_index(str(INDEX_FILE))
 
 with META_FILE.open() as f:
@@ -30,13 +30,7 @@ _model = SentenceTransformer(MODEL_NAME)
 def search(query: str, service: str | None = None, k: int = 5):
     q_emb = _model.encode([query], normalize_embeddings=True).astype("float32")
 
-    scores, ids = _index.search(q_emb, 20)  # fetch extra for filtering
-
-    # index, meta, model = load()
-
-    # q_emb = model.encode([query], normalize_embeddings=True).astype("float32")
-    # scores, ids = index.search(q_emb, 20)  # fetch more to allow filtering
-
+    scores, ids = _index.search(q_emb, 50)  # fetch extra for filtering
     candidates = []
 
     for i, similarity_score in zip(ids[0], scores[0]):
@@ -48,7 +42,18 @@ def search(query: str, service: str | None = None, k: int = 5):
 
         # Penalize release notes
         if chunk.get("source") == "releasenotes":
-            score *= 0.8
+            score *= 0.5
+
+        # Boost matching service if explicit
+        if service and chunk.get("service") == service:
+            score *= 1.1
+
+        heading = (chunk.get("heading") or "").lower()
+        if any(word in heading for word in query.lower().split()):
+            score *= 1.15
+
+        if "security" in query.lower() and chunk.get("service") == "neutron":
+            score *= 1.2
 
         if service and chunk.get("service") != service:
             continue
@@ -61,7 +66,6 @@ def search(query: str, service: str | None = None, k: int = 5):
     candidates.sort(key=lambda x: x["score"], reverse=True)
 
     return candidates[:k]
-
 
 
 if __name__ == "__main__":

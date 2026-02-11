@@ -1,5 +1,6 @@
 from agents.tools import search_docs
 from llm.ollama import OllamaLLM
+import re
 
 
 SYSTEM_PROMPT = """You are an OpenStack troubleshooting assistant.
@@ -18,6 +19,8 @@ Rules:
 - Do NOT provide generic explanations.
 - If evidence is insufficient, say so.
 - Do NOT invent configuration or causes.
+- If evidence spans multiple services, you MUST explain how those services interact.
+- You MUST describe causal relationships between services if applicable.
 """
 
 
@@ -69,24 +72,18 @@ class ReActAgent:
                 print(reply)
 
             # --- Handle Final FIRST ---
-            if "final:" in reply.lower():
-                final_part = reply[reply.lower().index("final:"):]
+            match = re.search(r'final:\s*(.*)', reply, re.IGNORECASE | re.DOTALL)
+            if match:
+                final_part = "Final: " + match.group(1).strip()
                 if not evidence_found:
                     return "Final: No relevant documentation was retrieved to support a grounded conclusion.", history
                 return final_part.strip(), history
 
             # --- Tool call ---
-            if "Action:" in reply:
+            if "action:" in reply.lower():
                 query = self._extract_query(reply)
 
-                expanded_query = " ".join([
-                    query,
-                    "NoValidHost",
-                    "host selection failure",
-                    "scheduler could not select host",
-                    "placement allocation failure",
-                    "aggregate metadata mismatch"
-                ])
+                expanded_query = query
 
                 if self.debug:
                     print("\n[DEBUG] Search query:", expanded_query)
@@ -97,7 +94,12 @@ class ReActAgent:
                     evidence_found = True
 
                 if self.debug:
-                    print(f"[DEBUG] Retrieved {len(results)} results")
+                    if isinstance(results, dict):
+                        total = sum(len(v) for v in results.values())
+                    else:
+                        total = len(results)
+
+                    print(f"[DEBUG] Retrieved {total} results")
 
                 obs = self._format_results(results)
                 context += f"\nObservation:\n{obs}\n"
@@ -128,27 +130,54 @@ class ReActAgent:
                     history.append(final_reply)
                     return final_reply, history
 
-            else:
-                break
 
         return "Final: Unable to reach a grounded conclusion.", history
 
     def _extract_query(self, text: str) -> str:
-        start = text.find('query="') + 7
-        end = text.find('"', start)
-        return text[start:end]
+        match = re.search(r'query\s*=\s*"([^"]+)"', text)
+        return match.group(1) if match else text
     
     def _format_results(self, results):
+        """
+        Supports:
+        - Multi-service: Dict[str, List[dict]]
+        - Single-service (legacy): List[dict]
+        """
+
         out = []
-        for r in results[:3]:
-            out.append(
-                f"""Source: {r.get('source')}
+
+        # --- Multi-service mode ---
+        if isinstance(results, dict):
+            for svc, svc_results in results.items():
+                out.append(f"\n=== Service: {svc.upper()} ===\n")
+
+                for r in svc_results[:3]:
+                    out.append(
+                        f"""Source: {r.get('source')}
     Service: {r.get('service')}
     Score: {r.get('score'):.3f}
 
     Excerpt:
     \"\"\"{r['text'][:800]}\"\"\"
     """
-            )
-        return "\n---\n".join(out)
+                    )
+
+            return "\n---\n".join(out)
+
+        # --- Flat list (backward compatibility) ---
+        if isinstance(results, list):
+            for r in results[:3]:
+                out.append(
+                    f"""Source: {r.get('source')}
+    Service: {r.get('service')}
+    Score: {r.get('score'):.3f}
+
+    Excerpt:
+    \"\"\"{r['text'][:800]}\"\"\"
+    """
+                )
+
+            return "\n---\n".join(out)
+
+        return ""
 

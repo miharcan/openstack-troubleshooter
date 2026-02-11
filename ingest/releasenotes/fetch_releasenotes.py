@@ -8,9 +8,7 @@ from datetime import datetime, UTC
 
 OUT_DIR = Path("data/raw/releasenotes")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
-
 PROJECTS = ["nova", "neutron", "placement"]
-
 BASE_GIT = "https://opendev.org/openstack"
 
 

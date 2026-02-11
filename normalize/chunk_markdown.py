@@ -156,6 +156,5 @@ def normalize():
     print(f"✔ Wrote {count} chunks to {OUT_FILE}")
 
 
-
 if __name__ == "__main__":
     normalize()

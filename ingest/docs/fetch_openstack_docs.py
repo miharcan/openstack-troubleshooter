@@ -5,9 +5,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from urllib.parse import urljoin, urlparse
-
-
+from urllib.parse import urljoin
 
 VERSION = "2025.2"
 BASE_URL = "https://docs.openstack.org"
@@ -132,7 +130,6 @@ def fetch_service(service: str):
 
             print(f"    ✔ {rel}")
             time.sleep(0.2)
-
 
         except Exception as e:
             print(f"    ✖ Failed {url}: {e}", file=sys.stderr)
