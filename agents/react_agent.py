@@ -4,82 +4,130 @@ from llm.ollama import OllamaLLM
 
 SYSTEM_PROMPT = """You are an OpenStack troubleshooting assistant.
 
-You use the ReAct pattern:
-- Thought: analyze the symptom
-- Action: search documentation if needed
-- Observation: note relevant facts
-- Final: explain likely causes and safe checks
+You MUST reason step-by-step using the following format:
+
+Thought: your reasoning about the symptom
+Action: search_docs(query="...", service="...")   (if you need documentation)
+Observation: summary of retrieved evidence
+Final: grounded explanation strictly based on evidence
 
 Rules:
 - You may search at most twice.
-- If you have enough evidence to explain the issue, you MUST produce a Final answer.
-- Documentation may explain mechanisms, not exact error messages.
-- Do not include CLI commands or configuration snippets unless they are explicitly present in the retrieved documentation.
-- Prefer explanation over remediation.
+- You MUST search before producing Final.
+- You MUST use retrieved evidence in your explanation.
+- Do NOT provide generic explanations.
+- If evidence is insufficient, say so.
+- Do NOT invent configuration or causes.
 """
 
 
 class ReActAgent:
-    def __init__(self, model: str | None = None):
+    def __init__(self, model=None, debug=False):
+        self.model = model
+        self.debug = debug
         self.llm = OllamaLLM(model=model)
 
     def run(self, symptom: str, service: str | None = None):
+        evidence_found = False
         context = ""
         history = []
 
-        for step in range(3):
-            # --- Normal ReAct prompt ---
+        for step in range(2):
             prompt = f"""{SYSTEM_PROMPT}
 
-Symptom:
-{symptom}
+    Symptom:
+    {symptom}
 
-Context so far:
-{context}
+    Evidence from documentation:
+    {context}
 
-Respond with ONE of the following formats:
+    Instructions:
+    - You MUST base your answer strictly on the evidence above.
+    - You MUST explicitly reference specific behaviors described in the evidence.
+    - If the evidence does not explain the issue, say:
+    "The retrieved documentation does not describe this failure mode."
 
-Thought: ...
-Action: search_docs(query="...", service="{service}")
+    Respond with ONE of the following formats:
 
-OR
+    Thought: ...
+    Action: search_docs(query="...", service="{service}")
 
-Final: ...
-"""
+    OR
+
+    Final: ...
+    """
+
+            if self.debug:
+                print("\n[DEBUG] ===== LLM PROMPT =====\n")
+                print(prompt[:800])
+
             reply = self.llm.generate(prompt).strip()
             history.append(reply)
 
-            # --- Final answer ---
-            if reply.lower().startswith("final"):
-                return reply, history
+            if self.debug:
+                print("\n[DEBUG] ===== LLM REPLY =====\n")
+                print(reply)
+
+            # --- Handle Final FIRST ---
+            if "final:" in reply.lower():
+                final_part = reply[reply.lower().index("final:"):]
+                if not evidence_found:
+                    return "Final: No relevant documentation was retrieved to support a grounded conclusion.", history
+                return final_part.strip(), history
 
             # --- Tool call ---
             if "Action:" in reply:
                 query = self._extract_query(reply)
-                results = search_docs(query, service=service)
+
+                expanded_query = " ".join([
+                    query,
+                    "NoValidHost",
+                    "host selection failure",
+                    "scheduler could not select host",
+                    "placement allocation failure",
+                    "aggregate metadata mismatch"
+                ])
+
+                if self.debug:
+                    print("\n[DEBUG] Search query:", expanded_query)
+
+                results = search_docs(expanded_query, service=service)
+
+                if results:
+                    evidence_found = True
+
+                if self.debug:
+                    print(f"[DEBUG] Retrieved {len(results)} results")
 
                 obs = self._format_results(results)
                 context += f"\nObservation:\n{obs}\n"
 
-                # --- Force synthesis after evidence ---
                 if step >= 1:
                     final_prompt = f"""{SYSTEM_PROMPT}
 
-Symptom:
-{symptom}
+    Symptom:
+    {symptom}
 
-Evidence from documentation:
-{context}
+    Evidence from documentation:
+    {context}
 
-Based on the evidence above, provide a Final explanation.
-Do NOT call any tools.
-Respond only with:
+    Based strictly on the evidence above:
 
-Final: ...
-"""
+    - You MUST reference specific phrases from the excerpts.
+    - You MUST explain which excerpt supports each claim.
+    - If no excerpt explicitly describes this failure mode, say so.
+
+    Respond only with:
+
+    Final: ...
+    """
+                    if not evidence_found:
+                        return "Final: No relevant documentation was retrieved to support a grounded conclusion.", history
+
                     final_reply = self.llm.generate(final_prompt).strip()
                     history.append(final_reply)
                     return final_reply, history
+
             else:
                 break
 
@@ -89,11 +137,18 @@ Final: ...
         start = text.find('query="') + 7
         end = text.find('"', start)
         return text[start:end]
-
+    
     def _format_results(self, results):
         out = []
         for r in results[:3]:
             out.append(
-                f"- {r['service']} | {r['heading']}:\n  {r['text'][:300]}"
+                f"""Source: {r.get('source')}
+    Service: {r.get('service')}
+    Score: {r.get('score'):.3f}
+
+    Excerpt:
+    \"\"\"{r['text'][:800]}\"\"\"
+    """
             )
-        return "\n".join(out)
+        return "\n---\n".join(out)
+

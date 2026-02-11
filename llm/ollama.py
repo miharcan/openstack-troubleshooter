@@ -12,10 +12,6 @@ class OllamaLLM:
         self.base_url = base_url
 
     def generate(self, prompt: str) -> str:
-        print("\n[DEBUG] Ollama model:", self.model)
-        print("[DEBUG] Prompt sent to Ollama (first 500 chars):")
-        print(prompt[:500], "\n")
-
         resp = requests.post(
             f"{self.base_url}/api/generate",
             json={
@@ -26,13 +22,7 @@ class OllamaLLM:
             timeout=120,
         )
 
-        print("[DEBUG] HTTP status:", resp.status_code)
         resp.raise_for_status()
-
         data = resp.json()
-        text = data.get("response", "").strip()
+        return data.get("response", "").strip()
 
-        print("[DEBUG] Ollama response (first 500 chars):")
-        print(text[:500], "\n")
-
-        return text

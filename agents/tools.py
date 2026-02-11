@@ -13,6 +13,7 @@ def search_docs(
     results = search(query, k=k)
 
     if service:
+        service = service.lower()
         results = [
             r for r in results
             if r.get("service") == service

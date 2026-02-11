@@ -3,16 +3,17 @@ from agents.react_agent import ReActAgent
 
 
 def main():
-    print("[DEBUG] cli.py main() started")
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--symptom", required=True)
     parser.add_argument("--service", required=False)
     parser.add_argument("--llm", required=False)
+    parser.add_argument("--debug", action="store_true")
 
     args = parser.parse_args()
 
-    agent = ReActAgent(model=args.llm)
+    # agent = ReActAgent(model=args.llm)
+    agent = ReActAgent(model=args.llm, debug=args.debug)
     result, trace = agent.run(args.symptom, args.service)
 
     print("\n=== TRACE ===")

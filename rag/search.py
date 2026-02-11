@@ -2,7 +2,6 @@
 
 import faiss
 import json
-import numpy as np
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
@@ -19,28 +18,58 @@ def load():
     model = SentenceTransformer(MODEL_NAME)
     return index, meta, model
 
+# --- LOAD ONCE AT IMPORT ---
+_index = faiss.read_index(str(INDEX_FILE))
 
-def search(query: str, k: int = 5):
-    index, meta, model = load()
+with META_FILE.open() as f:
+    _meta = json.load(f)
 
-    q_emb = model.encode([query], normalize_embeddings=True).astype("float32")
-    scores, ids = index.search(q_emb, k)
+_model = SentenceTransformer(MODEL_NAME)
 
-    results = []
-    for i, score in zip(ids[0], scores[0]):
-        r = meta[i].copy()
-        r["score"] = float(score)
-        results.append(r)
 
-    return results
+def search(query: str, service: str | None = None, k: int = 5):
+    q_emb = _model.encode([query], normalize_embeddings=True).astype("float32")
+
+    scores, ids = _index.search(q_emb, 20)  # fetch extra for filtering
+
+    # index, meta, model = load()
+
+    # q_emb = model.encode([query], normalize_embeddings=True).astype("float32")
+    # scores, ids = index.search(q_emb, 20)  # fetch more to allow filtering
+
+    candidates = []
+
+    for i, similarity_score in zip(ids[0], scores[0]):
+        if i == -1:
+            continue
+
+        chunk = _meta[i]
+        score = float(similarity_score)
+
+        # Penalize release notes
+        if chunk.get("source") == "releasenotes":
+            score *= 0.8
+
+        if service and chunk.get("service") != service:
+            continue
+
+        r = chunk.copy()
+        r["score"] = score
+        candidates.append(r)
+
+    # Now sort AFTER boosting
+    candidates.sort(key=lambda x: x["score"], reverse=True)
+
+    return candidates[:k]
+
 
 
 if __name__ == "__main__":
     query = "Nova scheduler cannot find a valid host"
-    results = search(query)
+    results = search(query, service="nova")
 
     for r in results:
         print("\n---")
         print(f"Score: {r['score']:.3f}")
-        print(f"{r['service']} | {r['heading']}")
+        print(f"{r.get('service')} | {r.get('heading')}")
         print(r["text"][:400], "...")
