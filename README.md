@@ -1,227 +1,135 @@
-# OpenStack Troubleshooter -- A Grounded ReAct Agent System
+# Grounded ReAct Framework
 
-This repository implements a **ReAct (Reasoning +
-Acting) agent** designed to troubleshoot complex infrastructure systems
-using official documentation as its single source of truth.
+A production-grade **retrieval-grounded reasoning framework** built on a
+full:
 
-The primary use case is **OpenStack troubleshooting**, but the
-architecture is framework-agnostic and can be adapted to Kubernetes,
-Terraform, AWS, internal enterprise platforms, or any system with
-structured documentation.
+**ingest → index → retrieve → reason** pipeline.
 
-This is not a retrieval-grounded reasoning engine built on a full ingest → index → retrieve → reason
-pipeline.
+This system implements a deterministic ReAct (Reasoning + Acting) agent
+that uses official documentation as its single source of truth.
 
 ------------------------------------------------------------------------
 
-# Extending Beyond OpenStack
+## 🚀 Core Use Case: OpenStack Troubleshooting
 
-Although OpenStack is the core use case, this architecture can be
-adapted to:
+The primary real-world implementation of this framework is **OpenStack
+infrastructure diagnostics**.
 
--   Kubernetes diagnostics
--   Terraform troubleshooting
--   Cloud provider documentation agents
--   Internal enterprise documentation assistants
+It is capable of:
 
-To adapt:
+-   Troubleshooting Nova scheduler failures
+-   Diagnosing Placement synchronization issues
+-   Explaining Neutron networking misconfigurations
+-   Resolving cross-service allocation errors
+-   Performing multi-service reasoning across Nova ↔ Neutron ↔ Placement
 
-1.  Replace the ingest source
-2.  Preserve metadata schema
-3.  Rebuild the index
-4.  Keep the ReAct loop unchanged
+OpenStack serves as a complex, multi-service validation environment
+proving the framework's ability to reason across distributed
+infrastructure systems.
 
 ------------------------------------------------------------------------
 
-# End-to-End Pipeline Overview
+## 🧠 Framework Capabilities
 
-    Ingest (fetch + normalize docs)
+### 1️⃣ Structured Ingestion
+
+-   Fetch official documentation (HTML, JSON, release notes, admin
+    guides)
+-   Normalize into chunked, indexed format
+-   Preserve service metadata for cross-service reasoning
+
+### 2️⃣ Deterministic Semantic Retrieval
+
+-   FAISS vector search
+-   Service-aware ranking
+-   Lexical + semantic hybrid boosting
+-   Multi-service detection
+-   Cross-service evidence grouping
+
+### 3️⃣ ReAct Agent Execution
+
+-   Explicit Thought → Action → Observation → Final loop
+-   Tool-restricted reasoning
+-   Strict grounding (no hallucinated configs)
+-   Multi-hop retrieval capability
+-   Cross-service causal explanation enforcement
+
+------------------------------------------------------------------------
+
+## 🏗 Architecture Overview
+
+    ingest/
+        fetch → normalize → structure
             ↓
-    Structured JSONL corpus
+    index/
+        embeddings → FAISS index
             ↓
-    Embedding + FAISS indexing
+    rag/
+        semantic retrieval + ranking intelligence
             ↓
-    Semantic retrieval (search_docs)
+    agents/
+        ReAct reasoning engine
             ↓
-    ReAct Agent reasoning loop
-            ↓
-    Grounded final answer
-
-This repository contains the **entire pipeline**, not just the agent.
+    cli.py
+        grounded troubleshooting interface
 
 ------------------------------------------------------------------------
 
-# Repository Structure
+## 🌍 Framework-Agnostic by Design
 
-    .
-    ├── ingest/
-    │   ├── admin_docs/
-    │   │   └── fetch_admin_docs.py
-    │   ├── docs/
-    │   │   ├── fetch_openstack_docs.py
-    │   │   └── convert_docs_jsonl.py
-    │   └── releasenotes/
-    │       ├── fetch_releasenotes.py
-    │       └── normalize_notes.py
-    │
-    ├── rag/
-    │   ├── search.py
-    │   └── build_index.py
-    │
-    ├── agents/
-    │   ├── react_agent.py
-    │   └── tools.py
-    │
-    ├── llm/
-    │   └── ollama.py
-    │
-    ├── data/
-    │   ├── raw/
-    │   └── processed/
-    │
-    ├── cli.py
-    └── README.md
+Although OpenStack is the primary validated use case, the architecture
+is fully adaptable to:
+
+-   Kubernetes
+-   Terraform
+-   AWS / Azure / GCP
+-   Internal enterprise platforms
+-   API documentation repositories
+-   Large Git-based knowledge bases
+
+If documentation can be ingested and indexed, the system can reason over
+it.
 
 ------------------------------------------------------------------------
 
-# Step 1 -- Ingest Documentation
+## 🎯 Design Principles
 
-The `ingest/` layer retrieves and normalizes official OpenStack
-documentation.
-
-## Fetch Documentation
-
-``` bash
-python ingest/docs/fetch_openstack_docs.py
-python ingest/admin_docs/fetch_admin_docs.py
-python ingest/releasenotes/fetch_releasenotes.py
-```
-
-This retrieves:
-
--   Core documentation
--   Admin documentation
--   Release notes
-
-All stored in `data/raw/`.
+-   Deterministic behavior over "creative" LLM output
+-   Evidence-first explanations
+-   Strict retrieval grounding
+-   Explicit reasoning trace
+-   Framework neutrality
+-   Scalable multi-service reasoning
 
 ------------------------------------------------------------------------
 
-# Step 2 -- Normalize and Convert
+## 🔥 What This Is Not
 
-Convert documentation into structured JSONL suitable for indexing:
+This is **not** a generic chatbot over documents.
 
-``` bash
-python ingest/docs/convert_docs_jsonl.py
-python ingest/releasenotes/normalize_notes.py
-```
+It is a structured reasoning engine with:
 
-This stage:
-
--   Cleans formatting
--   Extracts metadata (service, source, heading)
--   Produces structured chunks
--   Outputs to `data/processed/`
+-   Controlled tool access
+-   Retrieval validation
+-   Evidence formatting
+-   Causal cross-service explanation logic
 
 ------------------------------------------------------------------------
 
-# Step 3 -- Build the FAISS Index
+## 📌 Versioning
 
-Generate embeddings and build the vector index:
+Current evolution stage:
 
-``` bash
-python rag/build_index.py
-```
+**v0.6 --- Multi-Service Retrieval Intelligence**
 
-This step:
+Next milestone:
 
--   Embeds chunks using `sentence-transformers/all-MiniLM-L6-v2`
--   Builds a FAISS index
--   Saves:
-    -   `docs.faiss`
-    -   `docs_meta.json`
-
-These are loaded once per process at runtime.
+**v0.7 --- Iterative Multi-Hop Cross-Service Reasoning**
 
 ------------------------------------------------------------------------
 
-# Step 4 -- Run the Agent
+## 💡 Vision
 
-Basic usage:
-
-``` bash
-python cli.py --symptom "VM fails to boot"
-```
-
-Service-restricted search:
-
-``` bash
-python cli.py --symptom "No valid host found" --service nova
-```
-
-The agent:
-
-1.  Generates reasoning (Thought)
-2.  Calls `search_docs()`
-3.  Injects documentation excerpts
-4.  Forces grounded synthesis
-5.  Returns a final answer strictly based on evidence
-
-------------------------------------------------------------------------
-
-# Grounding Guarantees
-
-The system enforces:
-
--   Must search before answering
--   Maximum two searches
--   Must reference retrieved evidence
--   Cannot produce Final without evidence
--   Cannot fall back to generic knowledge
--   Cannot invent configuration details
-
-If documentation does not support a conclusion, the agent explicitly
-states so.
-
-------------------------------------------------------------------------
-
-# Performance Design
-
--   Embedding model loads once per process
--   FAISS index loads once
--   No repeated reinitialization
--   Efficient retrieval per query
-
-------------------------------------------------------------------------
-
-# Requirements
-
--   Python 3.10+
--   FAISS
--   sentence-transformers
--   requests
--   Ollama (local LLM runtime)
-
-Install:
-
-``` bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Run Ollama:
-
-``` bash
-ollama run qwen2.5:14b
-```
-
-------------------------------------------------------------------------
-
-# Design Principles
-
--   Deterministic over clever
--   Grounded over fluent
--   Transparent reasoning
--   Tool-driven architecture
--   Clean separation of ingest, retrieval, and reasoning layers
+To provide a production-grade, documentation-grounded reasoning engine
+for diagnosing complex distributed systems with full transparency and
+zero hallucinated explanations.
