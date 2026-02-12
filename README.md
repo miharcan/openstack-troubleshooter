@@ -10,10 +10,12 @@ that uses official documentation as its single source of truth.
 
 ------------------------------------------------------------------------
 
-## 🚀 Core Use Case: OpenStack Troubleshooting
+## 🚀 Primary Use Case
 
-The primary real-world implementation of this framework is **OpenStack
-infrastructure diagnostics**.
+The current showcase implementation is applied to OpenStack troubleshooting, combining:
+- Official OpenStack documentation
+- Nova/Neutron admin guides
+- GitHub issues and PR discussions
 
 It is capable of:
 
@@ -26,6 +28,14 @@ It is capable of:
 OpenStack serves as a complex, multi-service validation environment
 proving the framework's ability to reason across distributed
 infrastructure systems.
+
+However, the architecture is fully framework-agnostic and can be applied to:
+-Kubernetes
+-Terraform
+-AWS
+-Internal enterprise platforms
+-Any GitHub-backed engineering system
+-Any documentation-based software framework
 
 ------------------------------------------------------------------------
 

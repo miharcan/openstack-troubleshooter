@@ -44,9 +44,24 @@ def search(query: str, service: str | None = None, k: int = 5):
         if chunk.get("source") == "releasenotes":
             score *= 0.5
 
+        # Boost GitHub for failure/bug queries
+        if chunk.get("source") == "github":
+            if any(word in query.lower() for word in [
+                "error", "bug", "exception", "traceback",
+                "failure", "regression", "stacktrace"
+            ]):
+                score *= 1.25
+
         # Boost matching service if explicit
         if service and chunk.get("service") == service:
             score *= 1.1
+
+        # Boost documentation for how-to/config queries
+        if chunk.get("source") == "docs":
+            if any(word in query.lower() for word in [
+                "how", "configure", "setup", "install", "create"
+            ]):
+                score *= 1.2
 
         heading = (chunk.get("heading") or "").lower()
         if any(word in heading for word in query.lower().split()):
