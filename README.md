@@ -85,20 +85,110 @@ However, the architecture is fully framework-agnostic and can be applied to:
 
 ------------------------------------------------------------------------
 
-## 🌍 Framework-Agnostic by Design
+# Architecture
 
-Although OpenStack is the primary validated use case, the architecture
-is fully adaptable to:
+1.  Data ingestion (docs + GitHub)
+2.  Embedding generation (SentenceTransformers)
+3.  FAISS vector indexing
+4.  Intelligent service-aware retrieval
+5.  ReAct reasoning loop grounded strictly in retrieved evidence
 
--   Kubernetes
--   Terraform
--   AWS / Azure / GCP
--   Internal enterprise platforms
--   API documentation repositories
--   Large Git-based knowledge bases
+------------------------------------------------------------------------
 
-If documentation can be ingested and indexed, the system can reason over
-it.
+# Installation
+
+## 1. Clone Repository
+
+``` bash
+git clone https://github.com/<your-username>/grounded-react.git
+cd grounded-react
+```
+
+## 2. Create Virtual Environment
+
+``` bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+## 3. Install Dependencies
+
+``` bash
+pip install -r requirements.txt
+```
+
+------------------------------------------------------------------------
+
+# Data Ingestion
+
+## Ingest Official Documentation
+
+Example (OpenStack):
+
+``` bash
+python ingest/docs/fetch_openstack_docs.py     --output data/raw/openstack_docs.jsonl
+```
+
+Normalize:
+
+``` bash
+python ingest/docs/convert_docs_jsonl.py     --input data/raw/openstack_docs.jsonl     --output data/processed/docs_clean.jsonl
+```
+
+## Ingest GitHub Issues
+
+Example:
+
+``` bash
+python ingest/github/fetch_issues.py     --repo openstack/nova     --output data/raw/github_nova.jsonl
+```
+
+Optional: Avoid GitHub rate limits
+
+``` bash
+export GITHUB_TOKEN=your_token_here
+```
+
+------------------------------------------------------------------------
+
+# Indexing
+
+## Index Documentation
+
+``` bash
+python index_docs.py     --input data/processed/docs_clean.jsonl     --index data/processed/index/docs.faiss     --meta data/processed/index/docs_meta.json
+```
+
+## Index GitHub Issues
+
+``` bash
+python ingest/github/index_github.py     --input data/raw/github_nova.jsonl     --index data/processed/index/docs.faiss     --meta data/processed/index/docs_meta.json
+```
+
+The system supports incremental indexing. Documentation and GitHub data
+merge into the same FAISS index.
+
+------------------------------------------------------------------------
+
+# Running the Agent
+
+``` bash
+python cli.py --symptom "allocation candidates not found"
+```
+
+Examples:
+
+``` bash
+python cli.py --symptom "OperationalError instance_actions DROP COLUMN"
+python cli.py --symptom "how to create security group"
+python cli.py --symptom "nova scheduler exception during instance boot"
+```
+
+Optional service constraint:
+
+``` bash
+python cli.py --symptom "VM fails to boot" --service nova
+```
 
 ------------------------------------------------------------------------
 
@@ -113,33 +203,6 @@ it.
 
 ------------------------------------------------------------------------
 
-## 🔥 What This Is Not
+# License
 
-This is **not** a generic chatbot over documents.
-
-It is a structured reasoning engine with:
-
--   Controlled tool access
--   Retrieval validation
--   Evidence formatting
--   Causal cross-service explanation logic
-
-------------------------------------------------------------------------
-
-## 📌 Versioning
-
-Current evolution stage:
-
-**v0.6 --- Multi-Service Retrieval Intelligence**
-
-Next milestone:
-
-**v0.7 --- Iterative Multi-Hop Cross-Service Reasoning**
-
-------------------------------------------------------------------------
-
-## 💡 Vision
-
-To provide a production-grade, documentation-grounded reasoning engine
-for diagnosing complex distributed systems with full transparency and
-zero hallucinated explanations.
+MIT License
